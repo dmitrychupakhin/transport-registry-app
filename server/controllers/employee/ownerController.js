@@ -1,7 +1,8 @@
-const { NaturalPerson, LegalEntity } = require('../../models/associations');
+const { NaturalPerson, LegalEntity, RegistrationDoc } = require('../../models/associations');
 const ApiError = require("../../error/ApiError");
 const Joi = require('joi');
 const { Op } = require('sequelize');
+const sequelize = require('../../db');
 
 const naturalPersonSchema = Joi.object({
     passportData: Joi.string().pattern(/^[A-Z0-9]{10}$/).required(),
@@ -18,6 +19,12 @@ const legalEntitySchema = Joi.object({
 });
 
 class OwnerController {
+    /**
+     * Get natural person by passport data
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next middleware function
+     */
     async getNaturalPersonById(req, res, next) {
         try {
             const { id } = req.params;
@@ -28,6 +35,11 @@ class OwnerController {
 
             const person = await NaturalPerson.findOne({
                 where: { passportData: id },
+                include: [{
+                    model: RegistrationDoc,
+                    attributes: ['registrationNumber', 'registrationDate'],
+                    required: false
+                }],
                 attributes: ['passportData', 'lastName', 'firstName', 'patronymic', 'address']
             });
 
@@ -41,7 +53,15 @@ class OwnerController {
         }
     }
 
+    /**
+     * Update natural person
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next middleware function
+     */
     async updateNaturalPerson(req, res, next) {
+        const transaction = await sequelize.transaction();
+        
         try {
             const { id } = req.params;
             const { error } = naturalPersonSchema.validate(req.body);
@@ -51,22 +71,50 @@ class OwnerController {
                 throw ApiError.badRequest('Cannot change passport data');
             }
 
-            const [affectedCount] = await NaturalPerson.update(req.body, {
+            const person = await NaturalPerson.findOne({
                 where: { passportData: id },
-                returning: true
+                transaction
             });
 
-            if (affectedCount === 0) {
+            if (!person) {
                 throw ApiError.notFound('Owner not found');
             }
 
-            const updatedPerson = await NaturalPerson.findByPk(id);
-            res.json(updatedPerson);
+            // Проверка на существование регистрационных документов
+            const hasRegDocs = await RegistrationDoc.findOne({
+                where: { ownerPassport: id },
+                transaction
+            });
+
+            if (hasRegDocs) {
+                // Если есть регистрационные документы, запрещаем изменение некоторых полей
+                const restrictedFields = ['passportData', 'lastName', 'firstName', 'patronymic'];
+                for (const field of restrictedFields) {
+                    if (req.body[field] && req.body[field] !== person[field]) {
+                        throw ApiError.badRequest(`Cannot change ${field} for owner with registration documents`);
+                    }
+                }
+            }
+
+            await person.update(req.body, {
+                transaction,
+                fields: ['address']
+            });
+
+            await transaction.commit();
+            res.json(person);
         } catch (e) {
+            await transaction.rollback();
             next(e);
         }
     }
 
+    /**
+     * Get legal entity by tax number
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next middleware function
+     */
     async getLegalEntitiesById(req, res, next) {
         try {
             const { id } = req.params;
@@ -77,6 +125,11 @@ class OwnerController {
 
             const entity = await LegalEntity.findOne({
                 where: { taxNumber: id },
+                include: [{
+                    model: RegistrationDoc,
+                    attributes: ['registrationNumber', 'registrationDate'],
+                    required: false
+                }],
                 attributes: ['taxNumber', 'companyName', 'address']
             });
 
@@ -90,7 +143,15 @@ class OwnerController {
         }
     }
 
+    /**
+     * Update legal entity
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     * @param {Function} next - Express next middleware function
+     */
     async updateLegalEntities(req, res, next) {
+        const transaction = await sequelize.transaction();
+        
         try {
             const { id } = req.params;
             const { error } = legalEntitySchema.validate(req.body);
@@ -100,18 +161,40 @@ class OwnerController {
                 throw ApiError.badRequest('Cannot change tax number');
             }
 
-            const [affectedCount] = await LegalEntity.update(req.body, {
+            const entity = await LegalEntity.findOne({
                 where: { taxNumber: id },
-                returning: true
+                transaction
             });
 
-            if (affectedCount === 0) {
+            if (!entity) {
                 throw ApiError.notFound('Legal entity not found');
             }
 
-            const updatedEntity = await LegalEntity.findByPk(id);
-            res.json(updatedEntity);
+            // Проверка на существование регистрационных документов
+            const hasRegDocs = await RegistrationDoc.findOne({
+                where: { ownerTaxNumber: id },
+                transaction
+            });
+
+            if (hasRegDocs) {
+                // Если есть регистрационные документы, запрещаем изменение некоторых полей
+                const restrictedFields = ['taxNumber', 'companyName'];
+                for (const field of restrictedFields) {
+                    if (req.body[field] && req.body[field] !== entity[field]) {
+                        throw ApiError.badRequest(`Cannot change ${field} for legal entity with registration documents`);
+                    }
+                }
+            }
+
+            await entity.update(req.body, {
+                transaction,
+                fields: ['address']
+            });
+
+            await transaction.commit();
+            res.json(entity);
         } catch (e) {
+            await transaction.rollback();
             next(e);
         }
     }
