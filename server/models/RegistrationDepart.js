@@ -12,6 +12,11 @@ const RegistrationDepart = sequelize.define('registrationdepart', {
         type: DataTypes.STRING,
         unique: true,
         allowNull: false
+    },
+    address: {
+        type: DataTypes.STRING,
+        unique: true,
+        allowNull: false
     }
 }, {
     tableName: 'registrationdepart'
