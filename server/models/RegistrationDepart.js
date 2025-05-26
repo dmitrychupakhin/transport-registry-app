@@ -13,6 +13,7 @@ const RegistrationDepart = sequelize.define('registrationdepart', {
         unique: true,
         allowNull: false
     },
+    
     address: {
         type: DataTypes.STRING,
         unique: true,
