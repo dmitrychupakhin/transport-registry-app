@@ -5,7 +5,12 @@ const { Op } = require('sequelize');
 const sequelize = require('../../db');
 
 const regDepartSchema = Joi.object({
-    unitCode: Joi.string().min(6).max(6).required(),
+    unitCode: Joi.string().length(6).required(),
+    departmentName: Joi.string().min(8).max(128).required(),
+    address: Joi.string().min(8).max(255).required()    
+});
+
+const regDepartPutSchema = Joi.object({
     departmentName: Joi.string().min(8).max(128).required(),
     address: Joi.string().min(8).max(255).required()    
 });
@@ -13,22 +18,30 @@ const regDepartSchema = Joi.object({
 const regDepartPatchSchema = Joi.object({
     departmentName: Joi.string().min(8).max(128),
     address: Joi.string().min(8).max(255)
-});
+}).min(1);
 
 
 class RegDepartCrudController {
     
     async getAllRegDepart(req, res, next) {
         try {
-            const { error, value } = Joi.object({
+            const schema = Joi.object({
                 limit: Joi.number().integer().min(1).max(50).default(15),
                 page: Joi.number().integer().min(1).default(1),
-                search: Joi.string().optional()
-            }).validate(req.query);
+                search: Joi.string().optional(),
+                sortOrder: Joi.string().valid('asc', 'desc').insensitive().default('asc')
+            });
 
+            const rawQuery = { ...req.query };
+
+            if (rawQuery.sortOrder !== undefined && rawQuery.sortOrder !== null) {
+                rawQuery.sortOrder = String(rawQuery.sortOrder).toLowerCase().trim();
+            }
+
+            const { error, value } = schema.validate(rawQuery);
             if (error) throw ApiError.badRequest(error.details[0].message);
 
-            const { limit, page, search } = value;
+            const { limit, page, search, sortOrder } = value;
             const offset = (page - 1) * limit;
 
             const where = {};
@@ -44,13 +57,13 @@ class RegDepartCrudController {
                 where,
                 limit,
                 offset,
-                order: [['departmentName', 'ASC']]
+                order: [['departmentName', sortOrder.toUpperCase()]]
             });
 
             res.json({
                 total: count,
                 pages: Math.ceil(count / limit),
-                currentPage: +page,
+                currentPage: page,
                 data: rows
             });
         } catch (e) {
@@ -100,28 +113,17 @@ class RegDepartCrudController {
         const transaction = await sequelize.transaction();
         
         try {
-            const { id } = req.params;
+            const { unitCode } = req.params;
 
-            const { error, value } = regDepartSchema.validate(req.body);
+            const { error, value } = regDepartPutSchema.validate(req.body);
             if (error) throw ApiError.badRequest(error.details[0].message);
 
-            const department = await RegistrationDepart.findByPk(id, { transaction });
+            const department = await RegistrationDepart.findByPk(unitCode, { transaction });
             if (!department) {
                 throw ApiError.notFound('Department not found');
             }
 
-            const { unitCode, departmentName, address } = value;
-
-            // Проверка на уникальность кода подразделения
-            if (unitCode && unitCode !== department.unitCode) {
-                const existing = await RegistrationDepart.findOne({
-                    where: { unitCode },
-                    transaction
-                });
-                if (existing) {
-                    throw ApiError.conflict('Department with this unit code already exists');
-                }
-            }
+            const { departmentName, address } = value;
 
             if (departmentName && departmentName !== department.departmentName) {
                 const existing = await RegistrationDepart.findOne({
@@ -158,7 +160,7 @@ class RegDepartCrudController {
         const transaction = await sequelize.transaction();
 
         try {
-            const { id } = req.params;
+            const { unitCode } = req.params;
 
             const { error, value } = regDepartPatchSchema.validate(req.body);
             if (error) throw ApiError.badRequest(error.details[0].message);
@@ -167,7 +169,7 @@ class RegDepartCrudController {
                 throw ApiError.badRequest('No data provided to update');
             }
 
-            const department = await RegistrationDepart.findByPk(id, { transaction });
+            const department = await RegistrationDepart.findByPk(unitCode, { transaction });
             if (!department) throw ApiError.notFound('Department not found');
 
             if (value.departmentName && value.departmentName !== department.departmentName) {
@@ -200,9 +202,9 @@ class RegDepartCrudController {
         const transaction = await sequelize.transaction();
         
         try {
-            const { id } = req.params;
+            const { unitCode } = req.params;
 
-            const department = await RegistrationDepart.findByPk(id, { transaction });
+            const department = await RegistrationDepart.findByPk(unitCode, { transaction });
             if (!department) {
                 throw ApiError.notFound('Department not found');
             }
