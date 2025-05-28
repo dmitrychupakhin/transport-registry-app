@@ -104,6 +104,32 @@ class EmployeeCrudController {
         }
     }
 
+    async getEmployeeByField(req, res, next) {
+        try {
+            const schema = Joi.object({
+                badgeNumber: Joi.string(),
+                lastName: Joi.string(),
+                unitCode: Joi.string().length(6)
+            }).xor('badgeNumber', 'lastName', 'unitCode');
+
+            const { error, value } = schema.validate(req.query);
+            if (error) throw ApiError.badRequest(error.details[0].message);
+
+            const employee = await Employee.findOne({
+                where: value
+            });
+
+            if (!employee) {
+                throw ApiError.notFound('Employee not found');
+            }
+
+            res.json(employee);
+        } catch (e) {
+            console.error('GET BY FIELD ERROR:', e);
+            next(ApiError.internal(e.message));
+        }
+    }
+
     async createEmployee(req, res, next) {
         const transaction = await sequelize.transaction();
         

@@ -72,6 +72,32 @@ class RegDepartCrudController {
         }
     }
 
+    async getRegDepartByField(req, res, next) {
+        try {
+            const schema = Joi.object({
+                unitCode: Joi.string().length(6),
+                departmentName: Joi.string().min(8).max(128),
+                address: Joi.string().min(8).max(255)
+            }).xor('unitCode', 'departmentName', 'address');
+
+            const { error, value } = schema.validate(req.query);
+            if (error) throw ApiError.badRequest(error.details[0].message);
+
+            const department = await RegistrationDepart.findOne({
+                where: value
+            });
+
+            if (!department) {
+                throw ApiError.notFound('Department not found');
+            }
+
+            res.json(department);
+        } catch (e) {
+            console.error('GET DEPARTMENT BY FIELD ERROR:', e);
+            next(ApiError.internal(e.message));
+        }
+    }
+
     async createRegDepart(req, res, next) {
         const transaction = await sequelize.transaction();
         

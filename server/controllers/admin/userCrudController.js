@@ -15,11 +15,13 @@ const userSchema = Joi.object({
 });
 
 const userPatchSchema = Joi.object({
+    email: Joi.string().email().optional(),
+    password: Joi.string().min(8).max(50).optional(),
     role: Joi.string().valid('ADMIN', 'EMPLOYEE', 'OWNER').optional(),
     passportData: Joi.string().optional().allow(null),
     taxNumber: Joi.string().optional().allow(null),
     badgeNumber: Joi.string().optional().allow(null)
-});
+}).min(1);
 
 class UserCrudController {
 
@@ -65,16 +67,22 @@ class UserCrudController {
         }
     }
 
-    async getUserByEmail(req, res, next) {
+    async getUserByField(req, res, next) {
         try {
-            const { email } = req.params;
+            const schema = Joi.object({
+                email: Joi.string().email(),
+                passportData: Joi.string(),
+                taxNumber: Joi.string(),
+                badgeNumber: Joi.string()
+            }).xor('email', 'passportData', 'taxNumber', 'badgeNumber');
 
-            if (!email) {
-                throw ApiError.badRequest('Email is required');
+            const { error, value } = schema.validate(req.query);
+            if (error) {
+                throw ApiError.badRequest(error.details[0].message);
             }
 
             const user = await User.findOne({
-                where: { email },
+                where: value,
                 attributes: { exclude: ['password'] }
             });
 
@@ -84,7 +92,7 @@ class UserCrudController {
 
             res.json(user);
         } catch (e) {
-            console.error("GET BY EMAIL ERROR:", e);
+            console.error("GET BY FIELD ERROR:", e);
             next(ApiError.internal(e.message));
         }
     }
@@ -139,19 +147,24 @@ class UserCrudController {
         const transaction = await sequelize.transaction();
         
         try {
-            const { email } = req.params;
-            if (!email) {
-                throw ApiError.badRequest('Email is required');
+            const { id } = req.params;
+            if (!id) {
+                throw ApiError.badRequest('User ID is required');
             }
 
             const { error, value  } = userPatchSchema.validate(req.body);
             if (error) throw ApiError.badRequest(error.details[0].message);
 
-            const { passportData, taxNumber, badgeNumber } = value;
-
-            const user = await User.findOne({ where: { email }, transaction });
+            const user = await User.findByPk(id, { transaction });
             if (!user) {
                 throw ApiError.notFound('User not found');
+            }
+
+            const { email, passportData, taxNumber, badgeNumber, password } = value;
+
+            if (email && email !== user.email) {
+                const existing = await User.findOne({ where: { email }, transaction });
+                if (existing) throw ApiError.conflict('Email already in use');
             }
 
             if (passportData !== undefined && passportData !== user.passportData) {
@@ -167,6 +180,11 @@ class UserCrudController {
             if (badgeNumber !== undefined && badgeNumber !== user.badgeNumber) {
                 const existing = await User.findOne({ where: { badgeNumber }, transaction });
                 if (existing) throw ApiError.conflict('Badge number already used by another user');
+            }
+
+            if (password) {
+                const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS) || 10;
+                value.password = await bcrypt.hash(password, SALT_ROUNDS);
             }
 
             await user.update(value, { transaction });
@@ -186,12 +204,12 @@ class UserCrudController {
         const transaction = await sequelize.transaction();
         
         try {
-            const { email } = req.params;
-            if (!email) {
-                throw ApiError.badRequest('Email is required');
+            const { id } = req.params;
+            if (!id) {
+                throw ApiError.badRequest('User ID is required');
             }
 
-            const user = await User.findOne({ where: { email }, transaction });
+            const user = await User.findByPk(id, { transaction });
             if (!user) {
                 throw ApiError.notFound('User not found');
             }
