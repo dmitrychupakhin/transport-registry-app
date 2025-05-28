@@ -100,7 +100,7 @@ class EmployeeCrudController {
             });
         } catch (e) {
             console.error('GET EMPLOYEES ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 
@@ -126,7 +126,7 @@ class EmployeeCrudController {
             res.json(employee);
         } catch (e) {
             console.error('GET BY FIELD ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 
@@ -155,7 +155,7 @@ class EmployeeCrudController {
         } catch (e) {
             await transaction.rollback();
             console.error('CREATE EMPLOYEE ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 
@@ -180,7 +180,7 @@ class EmployeeCrudController {
         } catch (e) {
             await transaction.rollback();
             console.error('UPDATE ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 
@@ -209,7 +209,7 @@ class EmployeeCrudController {
         } catch (e) {
             await transaction.rollback();
             console.error('PATCH ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 
@@ -231,7 +231,7 @@ class EmployeeCrudController {
         } catch (e) {
             await transaction.rollback();
             console.error('DELETE ERROR:', e);
-            next(ApiError.internal(e.message));
+            next(e);
         }
     }
 }
