@@ -27,43 +27,29 @@ describe('Employee API', () => {
 
   beforeAll(async () => {
     await request(app).post('/api/admin/reg-depart').send(department);
-
-    for (let i = 0; i < 5; i++) {
-      await request(app).post('/api/admin/employees').send({
-        badgeNumber: `12-34${i}${i}`,
-        unitCode: department.unitCode,
-        lastName: `Тестов${i}`,
-        firstName: `Имя${i}`,
-        patronymic: `Отчество${i}`,
-        rank: i % 2 === 0 ? 'Майор' : 'Лейтенант'
-      });
-    }
   });
 
-  afterAll(async () => {
-    const allBadges = ['12-3456', '12-3400', '12-3411', '12-3422', '12-3433', '12-3444'];
-    for (const badge of allBadges) {
-      await request(app).delete(`/api/admin/employees/${badge}`).catch(() => {});
-    }
+  afterAll(async () => {    
+    await request(app).delete(`/api/admin/employees/${employeeData.badgeNumber}`).catch(() => {});    
     await request(app).delete(`/api/admin/reg-depart/${department.unitCode}`).catch(() => {});
   });
 
   describe('Create & Read', () => {
-    // Должен создать сотрудника
+    // Создание сотрудника
     test('should create an employee', async () => {
       const res = await request(app).post('/api/admin/employees').send(employeeData);
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty('badgeNumber', employeeData.badgeNumber);
     });
 
-    // Должен вернуть список сотрудников
+    // Получение списка сотрудников
     test('should return list of employees', async () => {
       const res = await request(app).get('/api/admin/employees');
       expect(res.statusCode).toBe(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     });
 
-    // Должен найти сотрудника по номеру значка
+    // Поиск сотрудника по номеру значка
     test('should find employee by badgeNumber', async () => {
       const res = await request(app)
         .get('/api/admin/employees/search')
@@ -74,7 +60,7 @@ describe('Employee API', () => {
   });
 
   describe('Update', () => {
-    // Должен обновить все поля (PUT)
+    // Полное обновление данных сотрудника (PUT)
     test('should update all fields (PUT)', async () => {
       const res = await request(app)
         .put(`/api/admin/employees/${employeeData.badgeNumber}`)
@@ -83,7 +69,7 @@ describe('Employee API', () => {
       expect(res.body.lastName).toBe(updatedData.lastName);
     });
 
-    // Должен обновить только звание (PATCH)
+    // Частичное обновление данных сотрудника - только звание (PATCH)
     test('should update rank (PATCH)', async () => {
       const res = await request(app)
         .patch(`/api/admin/employees/${employeeData.badgeNumber}`)
@@ -94,13 +80,13 @@ describe('Employee API', () => {
   });
 
   describe('Delete', () => {
-    // Должен удалить сотрудника
+    // Удаление существующего сотрудника
     test('should delete employee', async () => {
       const res = await request(app).delete(`/api/admin/employees/${employeeData.badgeNumber}`);
       expect(res.statusCode).toBe(204);
     });
 
-    // Должен вернуть 404 после удаления
+    // Попытка удаления несуществующего сотрудника — должно вернуть 404
     test('should return 404 after delete', async () => {
       const res = await request(app)
         .get('/api/admin/employees/search')
@@ -110,14 +96,33 @@ describe('Employee API', () => {
   });
 
   describe('Filters & Pagination', () => {
-    // Должен отфильтровать сотрудников по званию
+    beforeAll(async () => {
+      for (let i = 0; i < 5; i++) {
+        await request(app).post('/api/admin/employees').send({
+          badgeNumber: `12-34${i}${i}`,
+          unitCode: department.unitCode,
+          lastName: `Тестов${i}`,
+          firstName: `Имя${i}`,
+          patronymic: `Отчество${i}`,
+          rank: i % 2 === 0 ? 'Майор' : 'Лейтенант'
+        });
+      }
+    });
+
+    afterAll(async () => {
+      for (let i = 0; i < 5; i++) {
+        await request(app).delete(`/api/admin/employees/12-34${i}${i}`).catch(() => {});
+      }
+    });
+
+    // Сортировка сотрудников по званию
     test('should filter by rank', async () => {
       const res = await request(app).get('/api/admin/employees').query({ rank: 'Майор' });
       expect(res.statusCode).toBe(200);
       expect(res.body.data.every(e => e.rank.includes('Майор'))).toBe(true);
     });
 
-    // Должен вернуть вторую страницу с лимитом 2 записи
+    // Пагинация - получение второй страницы по 2 записи
     test('should paginate results', async () => {
       const res = await request(app).get('/api/admin/employees').query({ limit: 2, page: 2 });
       expect(res.statusCode).toBe(200);
@@ -125,7 +130,7 @@ describe('Employee API', () => {
       expect(res.body.currentPage).toBe(2);
     });
 
-    // Должен отсортировать по фамилии по убыванию
+    // Сортировка по фамилии в порядке убывания
     test('should sort by lastName desc', async () => {
       const res = await request(app)
         .get('/api/admin/employees')
@@ -139,7 +144,7 @@ describe('Employee API', () => {
   });
 
   describe('Validation & Errors', () => {
-    // Должен отклонить неверный формат номера значка
+    // Некорректный формат номера значка
     test('should reject invalid badgeNumber', async () => {
       const res = await request(app).post('/api/admin/employees').send({
         ...employeeData,
@@ -148,14 +153,14 @@ describe('Employee API', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    // Должен вернуть ошибку конфликта при дублировании номера значка
+    // Дублирование номера значка - должен вернуть 409
     test('should not allow duplicate badgeNumber', async () => {
       await request(app).post('/api/admin/employees').send(employeeData); 
       const res = await request(app).post('/api/admin/employees').send(employeeData); 
       expect(res.statusCode).toBe(409);
     });
 
-    // Должен вернуть 404 при обновлении несуществующего сотрудника
+    // Обновление несуществующего сотрудника - должен вернуть 404
     test('should return 404 when updating non-existent employee', async () => {
       const res = await request(app)
         .put('/api/admin/employees/00-0000')
