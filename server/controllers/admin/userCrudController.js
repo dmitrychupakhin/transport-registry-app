@@ -1,13 +1,22 @@
-const { User, Employee } = require('../../models/associations');
+const { User, Employee, NaturalPerson, LegalEntity } = require('../../models/associations');
 const ApiError = require("../../error/ApiError");
 const Joi = require('joi');
 const { Op } = require('sequelize');
 const sequelize = require('../../db');
 const bcrypt = require('bcrypt');
 
+function generateRandomString(length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
+
 const userSchema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).max(50).required(),
+    email: Joi.string().email().optional(),
+    password: Joi.string().min(8).max(50).optional(),
     role: Joi.string().valid('ADMIN', 'EMPLOYEE', 'OWNER').required(),
     passportData: Joi.string().pattern(/^\d{4} \d{6}$/).optional().allow(null)
         .messages({ 'string.pattern.base': 'passportData must match format "1234 567890"' }),
@@ -16,7 +25,7 @@ const userSchema = Joi.object({
     badgeNumber: Joi.string().pattern(/^\d{2}-\d{4}$/).optional().allow(null)
         .messages({ 'string.pattern.base': 'badgeNumber must match format "12-3456"' })
 }).custom((value, helpers) => {
-  const { role, passportData, taxNumber, badgeNumber, unitCode, email, password } = value;
+  const { role, passportData, taxNumber, badgeNumber, email, password } = value;
 
   if (role === 'EMPLOYEE') {
     if (!badgeNumber) return helpers.error('any.invalid', { message: 'EMPLOYEE must provide badgeNumber' });
@@ -25,6 +34,7 @@ const userSchema = Joi.object({
   if (role === 'OWNER') {
     if (!passportData && !taxNumber) return helpers.error('any.invalid', { message: 'Provide either passportData or taxNumber' });
     if (passportData && taxNumber) return helpers.error('any.invalid', { message: 'Only one of passportData or taxNumber allowed' });
+    if (!email || !password) return helpers.error('any.invalid', { message: 'OWNER must provide email and password' });
   }
 
   if (role === 'ADMIN') {
@@ -136,17 +146,11 @@ class UserCrudController {
             let finalEmail = email;
             let finalPassword = password;
             
-            if (finalEmail) {
-                const existingEmail = await User.findOne({ where: { email }, transaction });
-                if (existingEmail) throw ApiError.conflict('User with this email already exists');
-            }
-
             if (role === 'EMPLOYEE') {
                 if (!badgeNumber) throw ApiError.badRequest('badgeNumber is required');
 
                 const employee = await Employee.findOne({ where: { badgeNumber }, transaction });
                 if (!employee) throw ApiError.notFound('Employee not found');
-
 
                 const existingUser = await User.findOne({ where: { badgeNumber }, transaction });
                 if (existingUser) throw ApiError.conflict('User for this employee already exists');
@@ -154,14 +158,13 @@ class UserCrudController {
                 finalEmail = `${generateRandomString(10)}@employee.ru`;
                 finalPassword = generateRandomString(12); 
 
-                // Это временная тема, пока что-то умнее не придумаю, 
-                // можно было бы и через pgAdmin смотреть, но там пароль с хешем
                 console.log(`Сгенерированный пароль для сотрудника: ${finalPassword}`);
             }
 
             if (role === 'OWNER') {
                 if (!passportData && !taxNumber) throw ApiError.badRequest('OWNER must provide either passportData or taxNumber');
                 if (passportData && taxNumber) throw ApiError.badRequest('Provide only one of passportData or taxNumber');
+                if (!email || !password) throw ApiError.badRequest('OWNER must provide email and password');
 
                 if (passportData) {
                     const person = await NaturalPerson.findOne({ where: { passportData }, transaction });
@@ -172,6 +175,15 @@ class UserCrudController {
                     const entity = await LegalEntity.findOne({ where: { taxNumber }, transaction });
                     if (!entity) throw ApiError.notFound('LegalEntity not found');
                 }
+            }
+
+            if (role === 'ADMIN') {
+                if (!email || !password) throw ApiError.badRequest('ADMIN must provide email and password');
+            }
+
+            if (finalEmail) {
+                const existingEmail = await User.findOne({ where: { email: finalEmail }, transaction });
+                if (existingEmail) throw ApiError.conflict('User with this email already exists');
             }
 
             const hashedPassword = await bcrypt.hash(finalPassword, SALT_ROUNDS);
