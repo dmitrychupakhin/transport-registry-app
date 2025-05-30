@@ -23,8 +23,8 @@ router.put('/reg-docs/:regNumber', regDocCrudController.updateRegDoc);
 router.patch('/reg-docs/:regNumber', regDocCrudController.patchRegDoc);
 
 router.get('/reg-op', regOpController.getAllRegOp);
-router.get('/reg-op/:id', regOpController.getRegOpById);
-router.put('/reg-op/:id', regOpController.updateRegOp);
+router.get('/reg-op/:vin', regOpController.getRegOpByVin);
+router.put('/reg-op/:id', regOpController.patchRegOp);
 
 router.get('/work', workController.getAllWork);
 router.post('/work', workController.createWork);
