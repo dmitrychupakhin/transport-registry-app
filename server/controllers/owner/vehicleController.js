@@ -18,9 +18,14 @@ class VehicleController {
         const transaction = await sequelize.transaction();
         
         try {
-            const { error } = vehicleCreateSchema.validate(req.body);
+            const { error } = vehicleCreateSchema.validate(req.body, {
+                abortEarly: false,
+                allowUnknown: false
+            });
+
             if (error) {
-                throw ApiError.badRequest(error.details[0].message);
+                const errorMessages = error.details.map(detail => detail.message);
+                throw ApiError.badRequest(errorMessages.join(', '));
             }
 
             const { vin } = req.body;
@@ -31,12 +36,12 @@ class VehicleController {
             });
 
             if (existingVehicle) {
-                throw ApiError.conflict('Vehicle with this VIN already exists');
+                throw ApiError.conflict('Транспортное средство с таким VIN уже зарегистрировано');
             }
 
             const vehicleData = {
                 ...req.body,
-                bodyNumber: vin.slice(-6),
+                bodyNumber: vin.slice(-6), 
                 chassisNumber: req.body.hasChassisNumber ? vin : null 
             };
 
@@ -45,14 +50,26 @@ class VehicleController {
             });
 
             await transaction.commit();
+
+            const createdVehicle = await TransportVehicle.findByPk(vehicle.vin, {
+                attributes: { 
+                    exclude: ['createdAt', 'updatedAt']
+                }
+            });
+
             return res.status(201).json({
-                message: 'Vehicle created successfully',
-                data: vehicle
+                message: 'Транспортное средство успешно добавлено в базу',
+                data: createdVehicle
             });
         } catch (e) {
             await transaction.rollback();
-            console.error('Error in createVehicle:', e);
-            next(e);
+            
+            if (e instanceof ApiError) {
+                next(e);
+            } else {
+                console.error('Ошибка при создании транспортного средства:', e);
+                next(ApiError.internal('Произошла ошибка при регистрации транспортного средства'));
+            }
         }
     }
 }

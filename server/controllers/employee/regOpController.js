@@ -1,71 +1,55 @@
-const { RegistrationOp, Employee, TransportVehicle, RegistrationDoc } = require('../../models/associations');
+const { RegistrationOp } = require('../../models/associations');
 const ApiError = require("../../error/ApiError");
 const Joi = require('joi');
 const { Op } = require('sequelize');
 const sequelize = require('../../db');
-
-const regOpSchema = Joi.object({
-    vin: Joi.string().pattern(/^[A-Z0-9]{17}$/).required(),
-    registrationNumber: Joi.string().pattern(/^[A-Z0-9]{8,20}$/).optional(),
-    unitCode: Joi.string().min(3).max(50).required(),
-    operationType: Joi.string().valid('registration', 'deregistration', 'change').required(),
-    operationBase: Joi.string().min(5).max(255).required(),
-    operationDate: Joi.date().iso().required(),
-    badgeNumber: Joi.string().pattern(/^[A-Z0-9]{5,10}$/).required()
-});
+const { regOpPatchSchema } = require('../../validations/regOpShema');
 
 class RegOpController {
-    /**
-     * Get all registration operations with filtering
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @param {Function} next - Express next middleware function
-     */
     async getAllRegOp(req, res, next) {
         try {
             const { error } = Joi.object({
                 limit: Joi.number().integer().min(1).max(100).default(20),
                 page: Joi.number().integer().min(1).default(1),
-                vin: Joi.string().pattern(/^[A-Z0-9]{17}$/).optional(),
-                operationType: Joi.string().valid('registration', 'deregistration', 'change').optional(),
+                vin: Joi.string().pattern(/^[A-HJ-NPR-Z0-9]{17}$/).optional(),
+                registrationNumber: Joi.string().pattern(/^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$/).optional(),
+                unitCode: Joi.string().length(6).optional(),
+                operationType: Joi.string().valid('Постановка на учет', 'Снятие с учета', 'Внесение измененеий в регистрационные данные').optional(),
                 startDate: Joi.date().iso().optional(),
-                endDate: Joi.date().iso().optional(),
-                badgeNumber: Joi.string().pattern(/^[A-Z0-9]{5,10}$/).optional()
+                endDate: Joi.date().iso().optional()
             }).validate(req.query);
 
-            if (error) throw ApiError.badRequest(error.details[0].message);
+            if (error) {
+                throw ApiError.badRequest(error.details[0].message);
+            }
 
-            const { limit, page, vin, operationType, startDate, endDate, badgeNumber } = req.query;
+            const limit = parseInt(req.query.limit) || 20;
+            const page = parseInt(req.query.page) || 1;
             const offset = (page - 1) * limit;
 
             const where = {};
-            if (vin) where.vin = vin;
-            if (operationType) where.operationType = operationType;
-            if (badgeNumber) where.badgeNumber = badgeNumber;
-            if (startDate && endDate) {
-                where.operationDate = { [Op.between]: [new Date(startDate), new Date(endDate)] };
+            if (req.query.vin) where.vin = req.query.vin;
+            if (req.query.registrationNumber) where.registrationNumber = req.query.registrationNumber;
+            if (req.query.unitCode) where.unitCode = req.query.unitCode;
+            if (req.query.operationType) where.operationType = req.query.operationType;
+          
+            if (req.query.startDate && req.query.endDate) {
+                where.operationDate = { 
+                    [Op.between]: [
+                        new Date(req.query.startDate + 'T00:00:00.000Z'),
+                        new Date(req.query.endDate + 'T23:59:59.999Z')
+                    ] 
+                };
+            } else if (req.query.startDate) {
+                where.operationDate = { [Op.gte]: new Date(req.query.startDate + 'T00:00:00.000Z') };
+            } else if (req.query.endDate) {
+                where.operationDate = { [Op.lte]: new Date(req.query.endDate + 'T23:59:59.999Z') };
             }
 
             const { count, rows } = await RegistrationOp.findAndCountAll({
                 where,
                 limit,
                 offset,
-                include: [
-                    {
-                        model: Employee,
-                        attributes: ['badgeNumber', 'firstName', 'lastName']
-                    },
-                    {
-                        model: TransportVehicle,
-                        attributes: ['vin', 'makeAndModel', 'releaseYear'],
-                        required: false
-                    },
-                    {
-                        model: RegistrationDoc,
-                        attributes: ['registrationNumber', 'registrationDate'],
-                        required: false
-                    }
-                ],
                 order: [['operationDate', 'DESC']],
                 attributes: { exclude: ['createdAt', 'updatedAt'] }
             });
@@ -73,118 +57,121 @@ class RegOpController {
             res.json({
                 total: count,
                 pages: Math.ceil(count / limit),
-                currentPage: +page,
+                currentPage: page,
                 data: rows
             });
         } catch (e) {
-            next(ApiError.internal(e.message));
+            if (e instanceof ApiError) {
+                next(e);
+            } else {
+                console.error('Ошибка при получении списка операций:', e);
+                next(ApiError.internal('Произошла ошибка при получении списка операций'));
+            }
         }
     }
 
-    /**
-     * Get registration operation by ID
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @param {Function} next - Express next middleware function
-     */
-    async getRegOpById(req, res, next) {
+    async getRegOpByVin(req, res, next) {
         try {
-            const { id } = req.params;
+            const { error: vinError } = Joi.string()
+                .pattern(/^[A-HJ-NPR-Z0-9]{17}$/)
+                .required()
+                .validate(req.params.vin);
 
-            if (!Number.isInteger(+id)) {
-                throw ApiError.badRequest('Invalid operation ID');
+            if (vinError) {
+                throw ApiError.badRequest('Неверный формат VIN');
             }
 
-            const operation = await RegistrationOp.findByPk(id, {
-                include: [
-                    {
-                        model: Employee,
-                        attributes: ['badgeNumber', 'firstName', 'lastName']
-                    },
-                    {
-                        model: TransportVehicle,
-                        attributes: ['vin', 'makeAndModel', 'releaseYear', 'bodyColor'],
-                        required: false
-                    },
-                    {
-                        model: RegistrationDoc,
-                        attributes: ['registrationNumber', 'registrationDate', 'address'],
-                        required: false
-                    }
-                ]
+            const { error: queryError } = Joi.object({
+                limit: Joi.number().integer().min(1).max(100).default(20),
+                page: Joi.number().integer().min(1).default(1)
+            }).validate(req.query);
+
+            if (queryError) {
+                throw ApiError.badRequest(queryError.details[0].message);
+            }
+
+            const limit = parseInt(req.query.limit) || 20;
+            const page = parseInt(req.query.page) || 1;
+            const offset = (page - 1) * limit;
+
+            const { count, rows } = await RegistrationOp.findAndCountAll({
+                where: { vin: req.params.vin },
+                limit,
+                offset,
+                order: [['operationDate', 'DESC']],
+                attributes: { exclude: ['createdAt', 'updatedAt'] }
             });
 
-            if (!operation) {
-                throw ApiError.notFound('Operation not found');
+            if (!count) {
+                throw ApiError.notFound('Операции для указанного VIN не найдены');
             }
 
-            res.json(operation);
+            res.json({
+                total: count,
+                pages: Math.ceil(count / limit),
+                currentPage: page,
+                data: rows
+            });
         } catch (e) {
-            next(e);
+            if (e instanceof ApiError) {
+                next(e);
+            } else {
+                console.error('Ошибка при получении операций по VIN:', e);
+                next(ApiError.internal('Произошла ошибка при получении операций'));
+            }
         }
     }
 
-    /**
-     * Update registration operation
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @param {Function} next - Express next middleware function
-     */
-    async updateRegOp(req, res, next) {
+    async patchRegOp(req, res, next) {
         const transaction = await sequelize.transaction();
         
         try {
             const { id } = req.params;
-            const { error } = regOpSchema.validate(req.body);
-            if (error) throw ApiError.badRequest(error.details[0].message);
+
+            const { error: idError } = Joi.number()
+                .integer()
+                .positive()
+                .required()
+                .validate(id);
+
+            if (idError) {
+                throw ApiError.badRequest('Неверный формат ID операции');
+            }
+
+            const { error: bodyError } = regOpPatchSchema.validate(req.body);
+            if (bodyError) {
+                throw ApiError.badRequest(bodyError.details[0].message);
+            }
 
             const operation = await RegistrationOp.findByPk(id, { transaction });
             if (!operation) {
-                throw ApiError.notFound('Operation not found');
+                throw ApiError.notFound('Операция не найдена');
             }
 
-            // Проверка существования сотрудника
-            const employee = await Employee.findOne({
-                where: { badgeNumber: req.body.badgeNumber },
-                transaction
-            });
-
-            if (!employee) {
-                throw ApiError.badRequest('Employee not found');
+            const updateData = {};
+            if (req.body.registrationNumber !== undefined) {
+                updateData.registrationNumber = req.body.registrationNumber;
+            }
+            if (req.body.operationDate) {
+                updateData.operationDate = req.body.operationDate;
             }
 
-            // Проверка существования ТС
-            const vehicle = await TransportVehicle.findOne({
-                where: { vin: req.body.vin },
-                transaction
-            });
-
-            if (!vehicle) {
-                throw ApiError.badRequest('Vehicle not found');
-            }
-
-            // Проверка существования регистрационного документа если указан
-            if (req.body.registrationNumber) {
-                const doc = await RegistrationDoc.findOne({
-                    where: { registrationNumber: req.body.registrationNumber },
-                    transaction
-                });
-
-                if (!doc) {
-                    throw ApiError.badRequest('Registration document not found');
-                }
-            }
-
-            await operation.update(req.body, {
-                transaction,
-                fields: ['vin', 'registrationNumber', 'unitCode', 'operationType', 'operationBase', 'operationDate', 'badgeNumber']
-            });
-
+            await operation.update(updateData, { transaction });
             await transaction.commit();
-            res.json(operation);
+
+            const updatedOperation = await RegistrationOp.findByPk(id, {
+                attributes: { exclude: ['createdAt', 'updatedAt'] }
+            });
+
+            res.json(updatedOperation);
         } catch (e) {
             await transaction.rollback();
-            next(e);
+            if (e instanceof ApiError) {
+                next(e);
+            } else {
+                console.error('Ошибка при обновлении операции:', e);
+                next(ApiError.internal('Произошла ошибка при обновлении операции'));
+            }
         }
     }
 }
