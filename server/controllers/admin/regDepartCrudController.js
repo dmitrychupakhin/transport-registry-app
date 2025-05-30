@@ -3,23 +3,7 @@ const ApiError = require("../../error/ApiError");
 const Joi = require('joi');
 const { Op } = require('sequelize');
 const sequelize = require('../../db');
-
-const regDepartSchema = Joi.object({
-    unitCode: Joi.string().length(6).required(),
-    departmentName: Joi.string().min(8).max(128).required(),
-    address: Joi.string().min(8).max(255).required()    
-});
-
-const regDepartPutSchema = Joi.object({
-    departmentName: Joi.string().min(8).max(128).required(),
-    address: Joi.string().min(8).max(255).required()    
-});
-
-const regDepartPatchSchema = Joi.object({
-    departmentName: Joi.string().min(8).max(128),
-    address: Joi.string().min(8).max(255)
-}).min(1);
-
+const { regDepartSchema, regDepartPutSchema, regDepartPatchSchema } = require('../../validations/regDepartShema');
 
 class RegDepartCrudController {
     
