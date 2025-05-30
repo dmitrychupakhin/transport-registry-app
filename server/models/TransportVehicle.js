@@ -30,7 +30,7 @@ const TransportVehicle = sequelize.define('transportvehicle', {
     },
     chassisNumber: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     bodyNumber: {
         type: DataTypes.STRING,

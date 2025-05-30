@@ -31,7 +31,8 @@ router.post('/work', workController.createWork);
 router.put('/work/:id', workController.updateWork);
 
 router.get('/vehicles', vehicleController.getAllTransportVehicle);
-router.get('/vehicles/:id', vehicleController.getTransportVehicleById);
-router.put('/vehicles/:id', vehicleController.updateTransportVehicle);
+router.get('/vehicles/:vin', vehicleController.getTransportVehicleByVin);
+router.put('/vehicles/:vin', vehicleController.updateTransportVehicle);
+router.patch('/vehicles/:vin', vehicleController.patchTransportVehicle);
 
 module.exports = router;
