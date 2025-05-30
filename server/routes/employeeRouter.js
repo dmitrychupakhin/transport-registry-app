@@ -17,9 +17,10 @@ router.put('/legal-entities/:taxNumber', ownerController.updateLegalEntity);
 router.patch('/legal-entities/:taxNumber', ownerController.patchLegalEntity);
 
 router.get('/reg-docs', regDocCrudController.getAllRegDoc);
-router.get('/reg-docs/:reg_number', regDocCrudController.getRegDocById);
+router.get('/reg-docs/:regNumber', regDocCrudController.getRegDocByRegNumber);
 router.post('/reg-docs', regDocCrudController.createRegDoc);
-router.put('/reg-docs/:reg_number', regDocCrudController.updateRegDoc);
+router.put('/reg-docs/:regNumber', regDocCrudController.updateRegDoc);
+router.patch('/reg-docs/:regNumber', regDocCrudController.patchRegDoc);
 
 router.get('/reg-op', regOpController.getAllRegOp);
 router.get('/reg-op/:id', regOpController.getRegOpById);

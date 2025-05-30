@@ -7,7 +7,7 @@ const RegistrationDoc = sequelize.define('registrationdoc', {
         unique: true,
         primaryKey: true,
         allowNull: false
-    },
+    },   
     address: {
         type: DataTypes.STRING,
         allowNull: false
@@ -22,10 +22,14 @@ const RegistrationDoc = sequelize.define('registrationdoc', {
         unique: true,
         allowNull: false
     },
+    documentOwner: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     registrationDate: {
         type: DataTypes.DATE,
         allowNull: false
-    }
+    }    
 }, {
     tableName: 'registrationdoc'
 });
