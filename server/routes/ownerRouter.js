@@ -2,11 +2,11 @@ const Router = require('express');
 const router = new Router();
 const regDocController = require('../controllers/owner/regDocController');
 const vehicleController = require('../controllers/owner/vehicleController');
-const ownerController = require('../controllers/owner/ownerController');
+const regDepartController = require('../controllers/owner/regDepartController');
 const regOpController = require('../controllers/owner/regOpController');
 
-router.get('/documents', regDocController.getAllRegDoc);
-router.post('/documents', regDocController.createRegDoc);
+router.get('/reg-docs', regDocController.getAllRegDoc);
+router.get('/reg-docs/:regNumber', regDocController.getRegDocByRegNumber);
 
 router.get('/reg-op', regOpController.getAllRegOp);
 router.get('/reg-op/:vin', regOpController.getRegOpByVin);
@@ -16,7 +16,6 @@ router.get('/vehicles', vehicleController.getMyVehicles);
 router.get('/vehicles/:vin/', vehicleController.getMyVehicleByVin);
 router.post('/vehicles', vehicleController.createVehicle);
 
-router.get('/operations', ownerController.getMyRegOps);
-router.post('/depart-info', ownerController.getRegDepart);
+router.get('/depart-info', regDepartController.getRegDepart);
 
 module.exports = router;
