@@ -29,6 +29,15 @@ const employeeRegistrationSchema = Joi.object({
     badgeNumber: Joi.string().required()
 });
 
+function generateRandomString(length) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+}
+
 class AuthController {
     async registerOwner(req, res, next) {
         const transaction = await sequelize.transaction();
@@ -121,8 +130,10 @@ class AuthController {
                 throw ApiError.conflict('Employee already registered');
             }
 
-            const tempEmail = `${badgeNumber}@employee.ru`;
-            const tempPassword = Math.random().toString(36).slice(-8);
+            const tempEmail = `${generateRandomString(10)}@employee.ru`;
+            const tempPassword = generateRandomString(12);
+
+            console.log(`Сгенерированный пароль для сотрудника: ${tempPassword}`);
 
             const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
 
