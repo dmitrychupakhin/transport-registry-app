@@ -5,36 +5,53 @@ describe('Owner API', () => {
   const testData = {
     naturalPerson: {
       isNaturalPerson: true,
-        passportData: '1234 567890',
+      passportData: '1234 567890',
       address: 'г. Москва, ул. Пушкина, д. 1',
-        lastName: 'Иванов',
-        firstName: 'Иван',
-        patronymic: 'Иванович'
+      lastName: 'Иванов',
+      firstName: 'Иван',
+      patronymic: 'Иванович'
     },
     legalEntity: {
       isNaturalPerson: false,
-        taxNumber: '1234567890',
+      taxNumber: '1234567890',
       address: 'г. Москва, ул. Лермонтова, д. 2',
-        companyName: 'ООО Тест'
+      companyName: 'ООО Тест'
+    },
+    anotherNaturalPerson: {
+      isNaturalPerson: true,
+      passportData: '9876 543210',
+      address: 'г. Москва, ул. Пушкина, д. 1',
+      lastName: 'Петров',
+      firstName: 'Петр',
+      patronymic: 'Петрович'
+    },
+    registrationDocNaturalPerson: {
+      registrationNumber: 'А123АА77',
+      address: 'г. Москва, ул. Пушкина, д. 1',
+      pts: '12 АБ 345678',
+      sts: '12 34 567890',
+      registrationDate: '2024-03-20',
+      documentOwner: '1234 567890'
+    },
+    registrationDocLegalEntity: {
+      registrationNumber: 'В456ВВ78',
+      address: 'г. Москва, ул. Лермонтова, д. 2',
+      pts: '34 ВГ 789012',
+      sts: '34 56 789012',
+      registrationDate: '2024-03-20',
+      documentOwner: '1234567890'
     }
   };
 
   beforeAll(async () => {
     await request(app).post('/api/auth/register/natural-person').send(testData.naturalPerson);
+    await request(app).post('/api/auth/register/natural-person').send(testData.anotherNaturalPerson);
     await request(app).post('/api/auth/register/legal-entity').send(testData.legalEntity);
+    await request(app).post('/api/employee/reg-docs').send(testData.registrationDocNaturalPerson);
+    await request(app).post('/api/employee/reg-docs').send(testData.registrationDocLegalEntity);
   });
 
-  afterAll(async () => {
-    await request(app)
-      .delete(`/api/auth/natural-persons/${testData.naturalPerson.passportData}`)
-      .catch(() => {});
-
-    await request(app)
-      .delete(`/api/auth/legal-entities/${testData.legalEntity.taxNumber}`)
-      .catch(() => {});
-  });
-
-    describe('Natural Person Operations', () => {
+  describe('Natural Person Operations', () => {
     describe('List & Search', () => {
       // Получение списка физических лиц с пагинацией
       test('should get all natural persons with pagination', async () => {
@@ -54,6 +71,7 @@ describe('Owner API', () => {
           ])
         );
       });
+
       // Сортировка физических лиц по номеру паспорта
       test('should sort natural persons by passportData', async () => {
         const res = await request(app)
@@ -105,9 +123,9 @@ describe('Owner API', () => {
       test('should update natural person', async () => {
         const updateData = {
           address: 'г. Москва, ул. Новая, д. 1',
-                    lastName: 'Петров',
-                    firstName: 'Петр',
-                    patronymic: 'Петрович'
+          lastName: 'Иванов',
+          firstName: 'Иван',
+          patronymic: 'Иванович'
         };
 
         const res = await request(app)
@@ -131,10 +149,10 @@ describe('Owner API', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.address).toBe(patchData.address);
       });
-        });
     });
+  });
 
-    describe('Legal Entity Operations', () => {
+  describe('Legal Entity Operations', () => {
     describe('List & Search', () => {
       // Получение списка юридических лиц с пагинацией
       test('should get all legal entities with pagination', async () => {
@@ -196,7 +214,7 @@ describe('Owner API', () => {
           .get('/api/employee/legal-entities/9999999999');
         
         expect(res.statusCode).toBe(404);
-        });
+      });
     });
 
     describe('Update Operations', () => {
@@ -228,6 +246,82 @@ describe('Owner API', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.address).toBe(patchData.address);
       });
-        });
     });
+  });
+
+  describe('Update Operations with Registration Documents', () => {
+    describe('Natural Person Updates', () => {
+      // Проверка обновления адреса владельца ТС и соответствующего изменения в регистрационном документе
+      test('should update address and registration document when person is vehicle owner', async () => {
+        const updateData = {
+          address: 'г. Москва, ул. Новая, д. 1',
+          lastName: 'Иванов',
+          firstName: 'Иван',
+          patronymic: 'Иванович'
+        };
+
+        const res = await request(app)
+          .put(`/api/employee/natural-persons/${testData.naturalPerson.passportData}`)
+          .send(updateData);
+        
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject(updateData);
+
+        // Проверяем, что адрес в регистрационном документе тоже обновился
+        const updatedDoc = await request(app)
+          .get(`/api/employee/reg-docs/${testData.registrationDocNaturalPerson.registrationNumber}`);
+        
+        expect(updatedDoc.statusCode).toBe(200);
+        expect(updatedDoc.body.address).toBe(updateData.address);
+      });
+
+      // Проверка обновления адреса не владельца ТС и отсутствия изменений в регистрационном документе
+      test('should update address without affecting registration document when person is not vehicle owner', async () => {
+        const updateData = {
+          address: 'г. Москва, ул. Другая, д. 1',
+          lastName: 'Петров',
+          firstName: 'Петр',
+          patronymic: 'Петрович'
+        };
+
+        const res = await request(app)
+          .put(`/api/employee/natural-persons/${testData.anotherNaturalPerson.passportData}`)
+          .send(updateData);
+        
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject(updateData);
+
+        // Проверяем, что адрес в регистрационном документе не изменился
+        const updatedDoc = await request(app)
+          .get(`/api/employee/reg-docs/${testData.registrationDocNaturalPerson.registrationNumber}`);
+        
+        expect(updatedDoc.statusCode).toBe(200);
+        expect(updatedDoc.body.address).toBe('г. Москва, ул. Новая, д. 1');
+      });
+    });
+
+    describe('Legal Entity Updates', () => {
+      // Проверка обновления адреса юридического лица - владельца ТС и соответствующего изменения в регистрационном документе
+      test('should update address and registration document when legal entity is vehicle owner', async () => {
+        const updateData = {
+          address: 'г. Москва, ул. Новая, д. 2',
+          companyName: 'ООО Обновленное'
+        };
+
+        const res = await request(app)
+          .put(`/api/employee/legal-entities/${testData.legalEntity.taxNumber}`)
+          .send(updateData);
+        
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject(updateData);
+
+        // Проверяем, что адрес в регистрационном документе тоже обновился
+        const updatedDoc = await request(app)
+          .get(`/api/employee/reg-docs/${testData.registrationDocLegalEntity.registrationNumber}`);
+        
+        expect(updatedDoc.statusCode).toBe(200);
+        expect(updatedDoc.body.address).toBe(updateData.address);
+      });
+    });
+  });
 });

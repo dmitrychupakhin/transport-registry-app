@@ -94,15 +94,38 @@ class OwnerController {
             }
             
             const oldAddress = naturalPerson.address;
-            
+
+            // Check if there are any registration documents where this person is the owner
+            const registrationDocs = await RegistrationDoc.findAll({
+                where: { 
+                    documentOwner: passport  // Проверяем только по documentOwner, а не по адресу
+                },
+                transaction
+            });
+
+            // Create or find new owner for the new address
             let newOwner = await Owner.findOne({ 
                 where: { address: updateData.address }, 
                 transaction 
             });
             if (!newOwner) {
                 newOwner = await Owner.create({ address: updateData.address }, { transaction }); 
-            } 
+            }
 
+            // If this person owns any registration documents, update their addresses
+            if (registrationDocs.length > 0) {
+                await RegistrationDoc.update(
+                    { address: updateData.address },
+                    { 
+                        where: { 
+                            documentOwner: passport  // Обновляем только документы этого владельца
+                        },
+                        transaction
+                    }
+                );
+            }
+            
+            // Update the natural person
             const [updatedRows] = await NaturalPerson.update(
                 updateData,
                 { 
@@ -115,6 +138,7 @@ class OwnerController {
                 throw new Error('Failed to update natural person');
             }
 
+            // Check if the old address is still in use by any natural persons or legal entities
             const linkedNaturalPersonCount = await NaturalPerson.count({ 
                 where: { address: oldAddress }, 
                 transaction 
@@ -128,6 +152,7 @@ class OwnerController {
                 transaction 
             });
 
+            // Delete the old owner record if no one is using it anymore
             if (linkedNaturalPersonCount === 0 && linkedLegalEntityCount === 0 && linkedRegDocsCount === 0) {
                 await Owner.destroy({ 
                     where: { address: oldAddress }, 
@@ -177,6 +202,7 @@ class OwnerController {
             if (updateData.address) {
                 const oldAddress = naturalPerson.address;
 
+                // First, create or find the new owner record
                 let newOwner = await Owner.findOne({ 
                     where: { address: updateData.address }, 
                     transaction 
@@ -185,6 +211,30 @@ class OwnerController {
                     newOwner = await Owner.create({ address: updateData.address }, { transaction });
                 }
 
+                // Then check if there are any registration documents where this person is the owner
+                const registrationDocs = await RegistrationDoc.findAll({
+                    where: { 
+                        address: oldAddress,
+                        documentOwner: passport
+                    },
+                    transaction
+                });
+
+                // Update registration documents address if they exist
+                if (registrationDocs.length > 0) {
+                    await RegistrationDoc.update(
+                        { address: updateData.address },
+                        { 
+                            where: { 
+                                address: oldAddress,
+                                documentOwner: passport
+                            },
+                            transaction
+                        }
+                    );
+                }
+
+                // Update the natural person
                 const [updatedRows] = await NaturalPerson.update(
                     updateData,
                     { 
@@ -197,6 +247,7 @@ class OwnerController {
                     throw new Error('Failed to update natural person');
                 }
 
+                // Check if the old address is still in use
                 const linkedNaturalPersonCount = await NaturalPerson.count({ 
                     where: { address: oldAddress }, 
                     transaction 
@@ -210,6 +261,7 @@ class OwnerController {
                     transaction 
                 });
 
+                // Delete the old owner record if no one is using it anymore
                 if (linkedNaturalPersonCount === 0 && linkedLegalEntityCount === 0 && linkedRegDocsCount === 0) {
                     await Owner.destroy({ 
                         where: { address: oldAddress }, 
@@ -217,7 +269,18 @@ class OwnerController {
                     });
                 }
             } else {
-                await naturalPerson.update(updateData, { transaction });
+                // If we're not updating the address, just update other fields
+                const [updatedRows] = await NaturalPerson.update(
+                    updateData,
+                    { 
+                        where: { passportData: passport },
+                        transaction
+                    }
+                );
+
+                if (updatedRows === 0) {
+                    throw new Error('Failed to update natural person');
+                }
             }
 
             await transaction.commit();
@@ -318,14 +381,38 @@ class OwnerController {
             }
     
             const oldAddress = legalEntity.address;
-    
-            let newOwner = await Owner.findOne({ 
-                where: { address: updateData.address }, 
-                transaction 
+
+            // Check if there are any registration documents where this entity is the owner
+            const registrationDocs = await RegistrationDoc.findAll({
+                where: { 
+                    address: oldAddress,
+                    documentOwner: taxNumber
+                },
+                transaction
             });
-            if (!newOwner) {
-                newOwner = await Owner.create({ address: updateData.address }, { transaction });
-            } 
+
+            // Only update address if this entity is the owner of the registration documents
+            if (registrationDocs.length > 0) {
+                let newOwner = await Owner.findOne({ 
+                    where: { address: updateData.address }, 
+                    transaction 
+                });
+                if (!newOwner) {
+                    newOwner = await Owner.create({ address: updateData.address }, { transaction });
+                }
+
+                // Update registration documents address
+                await RegistrationDoc.update(
+                    { address: updateData.address },
+                    { 
+                        where: { 
+                            address: oldAddress,
+                            documentOwner: taxNumber
+                        },
+                        transaction
+                    }
+                );
+            }
     
             const [updatedRows] = await LegalEntity.update(
                 updateData,
@@ -401,13 +488,37 @@ class OwnerController {
             if (updateData.address) {
                 const oldAddress = legalEntity.address;
 
-                let newOwner = await Owner.findOne({ 
-                    where: { address: updateData.address }, 
-                    transaction 
+                // Check if there are any registration documents where this entity is the owner
+                const registrationDocs = await RegistrationDoc.findAll({
+                    where: { 
+                        address: oldAddress,
+                        documentOwner: taxNumber
+                    },
+                    transaction
                 });
-                if (!newOwner) {
-                    newOwner = await Owner.create({ address: updateData.address }, { transaction });
-                } 
+
+                // Only update address if this entity is the owner of the registration documents
+                if (registrationDocs.length > 0) {
+                    let newOwner = await Owner.findOne({ 
+                        where: { address: updateData.address }, 
+                        transaction 
+                    });
+                    if (!newOwner) {
+                        newOwner = await Owner.create({ address: updateData.address }, { transaction });
+                    }
+
+                    // Update registration documents address
+                    await RegistrationDoc.update(
+                        { address: updateData.address },
+                        { 
+                            where: { 
+                                address: oldAddress,
+                                documentOwner: taxNumber
+                            },
+                            transaction
+                        }
+                    );
+                }
 
                 const [updatedRows] = await LegalEntity.update(
                     { address: updateData.address },
