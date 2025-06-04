@@ -1,23 +1,8 @@
-const { RegistrationDoc, TransportVehicle, RegistrationOp, RegDepartment } = require('../../models/associations');
+const { RegistrationDoc, RegistrationOp, TransportVehicle } = require('../../models/associations');
 const ApiError = require("../../error/ApiError");
 const Joi = require('joi');
-const { Op } = require('sequelize');
-const sequelize = require('../../db');
-
-const registrationRequestSchema = Joi.object({
-    vin: Joi.string().pattern(/^[A-Z0-9]{17}$/).required(),
-    departmentId: Joi.number().integer().min(1).required(),
-    operationType: Joi.string().valid('registration', 'change', 'deregistration').required(),
-    purpose: Joi.string().min(5).max(255).required()
-});
 
 class RegDocController {
-    /**
-     * Get all user's registration documents
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @param {Function} next - Express next middleware function
-     */
     async getAllRegDoc(req, res, next) {
         try {
             const { error } = Joi.object({
@@ -26,26 +11,27 @@ class RegDocController {
             }).validate(req.query);
 
             if (error) throw ApiError.badRequest(error.details[0].message);
-
             const { limit, page } = req.query;
             const offset = (page - 1) * limit;
-            const userId = req.user.id;
+
+            const user = req.user;
+            if (user.role !== 'OWNER') throw ApiError.forbidden('Only owners are allowed to view registration documents');
+
+            const documentOwner = user.passportData || user.taxNumber;
+            if (!documentOwner) throw ApiError.forbidden('Unable to determine the document owner');
 
             const { count, rows } = await RegistrationDoc.findAndCountAll({
-                where: {
-                    [Op.or]: [
-                        { ownerPassport: userId },
-                        { ownerTaxNumber: userId }
-                    ]
-                },
+                where: { documentOwner },
+                include: [{
+                    model: RegistrationOp,
+                    attributes: ['vin', 'operationDate', 'operationType'],
+                    include: [{
+                        model: TransportVehicle,
+                        attributes: ['makeAndModel', 'releaseYear']
+                    }]
+                }],
                 limit,
                 offset,
-                include: [
-                    {
-                        model: TransportVehicle,
-                        attributes: ['vin', 'makeAndModel', 'releaseYear']
-                    }
-                ],
                 order: [['registrationDate', 'DESC']]
             });
 
@@ -56,18 +42,42 @@ class RegDocController {
                 data: rows
             });
         } catch (e) {
+            console.error("GET ALL REGDOC ERROR:", e);
             next(ApiError.internal(e.message));
         }
     }
 
-    /**
-     * Create registration document request
-     * @param {Object} req - Express request object
-     * @param {Object} res - Express response object
-     * @param {Function} next - Express next middleware function
-     */
     async getRegDocByRegNumber(req, res, next) {
-        
+        try {
+            const { regNumber } = req.params;
+            const user = req.user;
+
+            if (user.role !== 'OWNER') throw ApiError.forbidden('Only owners are allowed to view registration documents');
+            const documentOwner = user.passportData || user.taxNumber;
+            if (!documentOwner) throw ApiError.forbidden('Unable to determine the document owner');
+
+            const doc = await RegistrationDoc.findOne({
+                where: {
+                    registrationNumber: regNumber,
+                    documentOwner
+                },
+                include: [{
+                    model: RegistrationOp,
+                    attributes: ['vin', 'operationDate', 'operationType'],
+                    include: [{
+                        model: TransportVehicle,
+                        attributes: ['makeAndModel', 'releaseYear']
+                    }]
+                }]
+            });
+
+            if (!doc) throw ApiError.notFound('Registration document not found or access is denied');
+
+            res.json(doc);
+        } catch (e) {
+            console.error('GET REGDOC BY NUMBER ERROR:', e);
+            next(ApiError.internal(e.message));
+        }
     }
 }
 

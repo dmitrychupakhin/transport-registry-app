@@ -1,17 +1,149 @@
 const { RegistrationOp, TransportVehicle, RegistrationDoc } = require('../../models/associations');
 const ApiError = require("../../error/ApiError");
-const Joi = require('joi');
 const { Op } = require('sequelize');
+const Joi = require('joi');
 const sequelize = require('../../db');
 const { regOpSchema } = require('../../validations/regOpShema');
 
 class RegOpController {
     async getAllRegOp(req, res, next) {
+        try {
+            const { error } = Joi.object({
+                limit: Joi.number().integer().min(1).max(100).default(10),
+                page: Joi.number().integer().min(1).default(1)
+            }).validate(req.query);
 
+            if (error) throw ApiError.badRequest(error.details[0].message);
+            const { limit, page } = req.query;
+            const offset = (page - 1) * limit;
+
+            const user = req.user;
+            if (user.role !== 'OWNER') throw ApiError.forbidden('Only owners can view registration operations');
+
+            const documentOwner = user.passportData || user.taxNumber;
+            if (!documentOwner) throw ApiError.forbidden('Unable to determine the document owner');
+
+            const docs = await RegistrationDoc.findAll({
+                where: { documentOwner },
+                attributes: ['registrationNumber']
+            });
+
+            const regNumbers = docs.map(doc => doc.registrationNumber).filter(Boolean);
+            if (!regNumbers.length) return res.json({ data: [], total: 0  });
+
+            const { count, rows } = await RegistrationOp.findAndCountAll({
+                where: {
+                    registrationNumber: { [Op.in]: regNumbers }
+                },
+                include: [
+                    {
+                        model: TransportVehicle,
+                        attributes: ['vin', 'makeAndModel', 'releaseYear']
+                    },
+                    {
+                        model: RegistrationDoc,
+                        attributes: ['registrationNumber', 'registrationDate']
+                    }
+                ],
+                limit,
+                offset,
+                order: [['operationDate', 'DESC']]
+            });
+
+            res.json({
+                total: count,
+                pages: Math.ceil(count / limit),
+                currentPage: page,
+                data: rows
+            });
+        } catch (e) {
+            console.error("GET ALL REGOP ERROR:", e);
+            next(ApiError.internal(e.message));
+        }
     }
 
     async getRegOpByVin(req, res, next) {
+        try {
+            const { error } = Joi.object({
+                limit: Joi.number().integer().min(1).max(100).default(10),
+                page: Joi.number().integer().min(1).default(1)
+            }).validate(req.query);
 
+            if (error) throw ApiError.badRequest(error.details[0].message);
+            
+            const { vin } = req.params;
+            const { limit, page } = req.query;
+            const offset = (page - 1) * limit;
+
+            const user = req.user;
+            if (user.role !== 'OWNER') throw ApiError.forbidden('Only owners can view registration operations');
+
+            const documentOwner = user.passportData || user.taxNumber;
+            if (!documentOwner) throw ApiError.forbidden('Unable to determine the document owner');
+
+            const opsByVin = await RegistrationOp.findAll({
+                where: { vin },
+                attributes: ['registrationNumber']
+            });
+
+            const regNumbers = opsByVin.map(op => op.registrationNumber);
+            if (!regNumbers.length) {
+                return res.json({
+                    total: 0,
+                    pages: 0,
+                    currentPage: Number(page),
+                    data: []
+                });
+            }
+
+            const docs = await RegistrationDoc.findAll({
+                where: {
+                    registrationNumber: { [Op.in]: regNumbers },
+                    documentOwner
+                },
+                attributes: ['registrationNumber']
+            });
+
+            const ownedRegNumbers = docs.map(d => d.registrationNumber);
+            if (!ownedRegNumbers.length) {
+                return res.json({
+                    total: 0,
+                    pages: 0,
+                    currentPage: Number(page),
+                    data: []
+                });
+            }
+
+            const { count, rows } = await RegistrationOp.findAndCountAll({
+                where: {
+                    vin,
+                    registrationNumber: { [Op.in]: ownedRegNumbers }
+                },
+                include: [
+                    {
+                        model: TransportVehicle,
+                        attributes: ['vin', 'makeAndModel', 'releaseYear']
+                    },
+                    {
+                        model: RegistrationDoc,
+                        attributes: ['registrationNumber', 'registrationDate']
+                    }
+                ],
+                limit,
+                offset,
+                order: [['operationDate', 'DESC']]
+            });
+
+            res.json({
+                total: count,
+                pages: Math.ceil(count / limit),
+                currentPage: page,
+                data: rows
+            });
+        } catch (e) {
+            console.error('GET REG-OP BY VIN ERROR:', e);
+            next(ApiError.internal(e.message));
+        }
     }
 
     async createRegOp(req, res, next) {
@@ -34,7 +166,7 @@ class RegOpController {
             });
 
             if (!vehicle) {
-                throw ApiError.badRequest('Транспортное средство с указанным VIN не найдено');
+                throw ApiError.badRequest('Vehicle with the specified VIN was not found');
             }
 
             if (req.body.registrationNumber) {
@@ -44,7 +176,7 @@ class RegOpController {
                 });
 
                 if (!doc) {
-                    throw ApiError.badRequest('Регистрационный документ не найден');
+                    throw ApiError.badRequest('Registration document was not found');
                 }
             }
 
@@ -76,7 +208,7 @@ class RegOpController {
             });
 
             res.status(201).json({
-                message: 'Операция регистрации успешно создана',
+                message: 'Registration operation successfully created',
                 data: createdOperation
             });
         } catch (e) {
@@ -85,8 +217,8 @@ class RegOpController {
             if (e instanceof ApiError) {
                 next(e);
             } else {
-                console.error('Ошибка при создании операции регистрации:', e);
-                next(ApiError.internal('Произошла ошибка при создании операции регистрации'));
+                console.error('CREATE REGOP ERROR:', e);
+                next(ApiError.internal(e.message));
             }
         }
     }
