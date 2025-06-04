@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const ApiError = require('../error/ApiError');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.SECRET_KEY || 'secret-key';
 
 module.exports = function (req, res, next) {
     if (req.method === "OPTIONS") {
