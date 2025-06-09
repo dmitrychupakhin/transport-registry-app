@@ -5,6 +5,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Context } from "./index"; 
 import { CircularProgress, Box } from "@mui/material";
+import Header from './components/Header'; 
 
 const theme = createTheme({
   palette: {
@@ -44,6 +45,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
+        <Header />
         <AppRouter />
       </BrowserRouter>
     </ThemeProvider>

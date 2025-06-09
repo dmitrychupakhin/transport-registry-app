@@ -4,18 +4,24 @@ import RegisterLegalOwner from './pages/RegistrationLegalOwner'
 import RegisterEmployee from './pages/RegistrationEmployee';
 import NotFound from './pages/NotFound';
 import DepartmentPage from './pages/Admin/DepartmentPage';
+import ProfilePage from './pages/ProfilePage';
 import { 
   LOGIN_ROUTE, 
   REGISTER_NATURAL_ROUTE,
   REGISTER_LEGAL_ROUTE, 
   REGISTRATION_EMPLOYEE_ROUTE,
-  DEPARTMENTS_ROUTE
+  DEPARTMENTS_ROUTE,
+  PROFILE_ROUTE
 } from "./utils/consts";
 
 export const authRoutes = [
   {
     path: DEPARTMENTS_ROUTE,
     Component: DepartmentPage
+  },
+  {
+    path: PROFILE_ROUTE,
+    Component: ProfilePage
   }
 ];
 
