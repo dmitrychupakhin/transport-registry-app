@@ -3,6 +3,7 @@ const ApiError = require('../../error/ApiError');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sequelize = require('../../db');
+const { translateError } = require('../../error/errorMessage');
 const { ownerRegistrationSchema, employeeRegistrationSchema } = require('../../validations/authShema');
 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS) || 10;
@@ -33,7 +34,7 @@ class AuthController {
                 transaction 
             });
             if (existingUser) {
-                throw ApiError.conflict('User with this email already exists');
+                throw ApiError.conflict(translateError('User with this email already exists'));
             }
 
             if (isNaturalPerson) {
@@ -42,7 +43,7 @@ class AuthController {
                     transaction 
                 });
                 if (!person) {
-                    throw ApiError.notFound('Natural person not found');
+                    throw ApiError.notFound(translateError('Natural person not found'));
                 }
             } else {
                 const entity = await LegalEntity.findOne({ 
@@ -50,7 +51,7 @@ class AuthController {
                     transaction 
                 });
                 if (!entity) {
-                    throw ApiError.notFound('Legal entity not found');
+                    throw ApiError.notFound(translateError('Legal entity not found'));
                 }
             }
 
@@ -99,7 +100,7 @@ class AuthController {
                 transaction 
             });
             if (!employee) {
-                throw ApiError.notFound('Employee not found');
+                throw ApiError.notFound(translateError('Employee not found'));
             }
 
             const existingUser = await User.findOne({ 
@@ -107,7 +108,7 @@ class AuthController {
                 transaction 
             });
             if (existingUser) {
-                throw ApiError.conflict('Employee already registered');
+                throw ApiError.conflict(translateError('Employee already registered'));
             }
 
             const tempEmail = `${generateRandomString(10)}@employee.ru`;
@@ -142,17 +143,17 @@ class AuthController {
             const { email, password } = req.body;
 
             if (!email || !password) {
-                throw ApiError.badRequest('Email and password are required');
+                throw ApiError.badRequest(translateError('Email and password are required'));
             }
 
             const user = await User.findOne({ where: { email } });
             if (!user) {
-                throw ApiError.notFound('User not found');
+                throw ApiError.notFound(translateError('User not found'));
             }
 
             const isValidPassword = await bcrypt.compare(password, user.password);
             if (!isValidPassword) {
-                throw ApiError.unauthorized('Invalid password');
+                throw ApiError.unauthorized(translateError('Invalid password'));
             }
 
             const token = jwt.sign(
@@ -177,8 +178,7 @@ class AuthController {
         try {
             
             if (!req.user || !req.user.id) {
-                console.error('No user data in request');
-                throw ApiError.unauthorized('No user data in request');
+                throw ApiError.unauthorized(translateError('No user data in request'));
             }
 
             const user = await User.findOne({ 
@@ -187,12 +187,18 @@ class AuthController {
             });
             
             if (!user) {
-                console.error('User not found in database');
-                throw ApiError.notFound('User not found');
+                throw ApiError.notFound(translateError('User not found'));
             }
+
+            const token = jwt.sign(
+                { id: user.id, email: user.email, role: user.role },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+            );
 
             res.json({
                 user,
+                token,
                 message: 'User is authorized'
             });
         } catch (e) {
@@ -200,7 +206,7 @@ class AuthController {
             if (e instanceof ApiError) {
                 next(e);
             } else {
-                next(ApiError.internal('Unexpected error during authorization check'));
+                next(ApiError.internal(translateError('Unexpected error during authorization check')));
             }
         }
     }

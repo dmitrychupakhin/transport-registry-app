@@ -1,6 +1,7 @@
 const { Owner, NaturalPerson, LegalEntity, RegistrationDoc } = require('../../models/associations');
 const ApiError = require('../../error/ApiError');
 const sequelize = require('../../db');
+const { translateError } = require('../../error/errorMessage');
 const { naturalPersonSchema, legalEntitySchema } = require('../../validations/ownerShema');
 
 class OwnerRegistrationController {
@@ -17,7 +18,7 @@ class OwnerRegistrationController {
                 transaction
             });
             if (existingPerson) {
-                throw ApiError.conflict('Natural person with this passport already exists');
+                throw ApiError.conflict(translateError('Natural person with this passport already exists'));
             }
 
             let owner = await Owner.findOne({ where: { address }, transaction });
@@ -55,7 +56,7 @@ class OwnerRegistrationController {
                 transaction
             });
             if (existingEntity) {
-                throw ApiError.conflict('Legal entity with this tax number already exists');
+                throw ApiError.conflict(translateError('Legal entity with this tax number already exists'));
             }
 
             let owner = await Owner.findOne({ where: { address }, transaction });
@@ -84,7 +85,7 @@ class OwnerRegistrationController {
             const { passportData } = req.params;
 
             if (!/^\d{4} \d{6}$/.test(passportData)) {
-                throw ApiError.badRequest('Invalid passport format (should be "XXXX XXXXXX")');
+                throw ApiError.badRequest(translateError('Invalid passport format (should be "XXXX XXXXXX")'));
             }
 
             const person = await NaturalPerson.findOne({
@@ -93,7 +94,7 @@ class OwnerRegistrationController {
             });
 
             if (!person) {
-                throw ApiError.notFound('Natural person not found');
+                throw ApiError.notFound(translateError('Natural person not found'));
             }
 
             const address = person.address;
@@ -135,7 +136,7 @@ class OwnerRegistrationController {
             const { taxNumber } = req.params;
 
             if (!/^\d{10}$/.test(taxNumber)) {
-                throw ApiError.badRequest('Invalid tax number format (should be 10 digits)');
+                throw ApiError.badRequest(translateError('Invalid tax number format (should be 10 digits)'));
             }
 
             const entity = await LegalEntity.findOne({
@@ -144,7 +145,7 @@ class OwnerRegistrationController {
             });
 
             if (!entity) {
-                throw ApiError.notFound('Legal entity not found');
+                throw ApiError.notFound(translateError('Legal entity not found'));
             }
 
             const address = entity.address;
