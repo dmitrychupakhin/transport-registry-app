@@ -1,18 +1,20 @@
-import Auth from './pages/Auth';
-import RegisterNaturalOwner from './pages/RegistrationNaturalOwner'
-import RegisterLegalOwner from './pages/RegistrationLegalOwner'
-import RegisterEmployee from './pages/RegistrationEmployee';
-import NotFound from './pages/NotFound';
+import Auth from './pages/Auth/Auth';
+import RegisterNaturalOwner from './pages/Auth/RegistrationNaturalOwner'
+import RegisterLegalOwner from './pages/Auth/RegistrationLegalOwner'
+import RegisterEmployee from './pages/Auth/RegistrationEmployee';
+import NotFound from './pages/Error/NotFound';
 import DepartmentPage from './pages/Admin/DepartmentPage';
 import ProfilePage from './pages/ProfilePage';
-import ForbiddenPage from './pages/ForbiddenPage';
+import ForbiddenPage from './pages/Error/ForbiddenPage';
+import EmployeePage from './pages/Admin/EmployeePage';
 import { 
   LOGIN_ROUTE, 
   REGISTER_NATURAL_ROUTE,
   REGISTER_LEGAL_ROUTE, 
   REGISTRATION_EMPLOYEE_ROUTE,
   DEPARTMENTS_ROUTE,
-  PROFILE_ROUTE
+  PROFILE_ROUTE,
+  EMPLOYEES_ROUTE
 } from "./utils/consts";
 
 export const authRoutes = [
@@ -20,6 +22,11 @@ export const authRoutes = [
     path: DEPARTMENTS_ROUTE,
     Component: DepartmentPage,
     roles: ['ADMIN'] 
+  },
+  {
+    path: EMPLOYEES_ROUTE,
+    Component: EmployeePage,
+    roles: ['ADMIN']
   },
   {
     path: PROFILE_ROUTE,

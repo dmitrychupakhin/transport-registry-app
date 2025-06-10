@@ -1,6 +1,6 @@
 import { Button, Container, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { HOME_ROUTE } from '../utils/consts';
+import { HOME_ROUTE } from '../../utils/consts';
 
 function NotFound() {
   const navigate = useNavigate();

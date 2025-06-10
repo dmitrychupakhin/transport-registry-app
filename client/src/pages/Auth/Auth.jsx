@@ -15,8 +15,8 @@ import {
   REGISTER_NATURAL_ROUTE, 
   REGISTER_LEGAL_ROUTE,
   REGISTRATION_EMPLOYEE_ROUTE 
-} from "../utils/consts";
-import { Context } from "../index";
+} from "../../utils/consts";
+import { Context } from "../../index";
 
 function Auth() {
   const [email, setEmail] = useState("");

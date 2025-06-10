@@ -10,9 +10,9 @@ import {
   CircularProgress,
   Link
 } from "@mui/material";
-import http from '../http';
-import { LOGIN_ROUTE } from "../utils/consts";
-import { Context } from "../index";
+import http from '../../http';
+import { LOGIN_ROUTE } from "../../utils/consts";
+import { Context } from "../../index";
 
 function RegisterEmployee() {
   const { user } = useContext(Context);
