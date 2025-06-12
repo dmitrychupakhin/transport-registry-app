@@ -5,5 +5,6 @@ export const REGISTER_LEGAL_ROUTE = '/register/legal'
 export const REGISTRATION_EMPLOYEE_ROUTE = '/register/employee';
 export const HOME_ROUTE = '/';
 export const DEPARTMENTS_ROUTE = '/admin/departments';
+export const EMPLOYEES_ROUTE = '/admin/employees';
 export const PROFILE_ROUTE = '/profile';
 

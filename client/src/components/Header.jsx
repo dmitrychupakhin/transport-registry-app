@@ -19,6 +19,12 @@ const Header = observer(() => {
         <Typography variant="h6" sx={{ flexGrow: 1, cursor: 'pointer' }} onClick={() => navigate('/')}>
           Transport Registry
         </Typography>
+        {user.isAuth && user.user.role === 'ADMIN' && (
+          <Box>
+            <Button color="inherit" onClick={() => navigate('/admin/employees')}>Сотрудники</Button>
+            <Button color="inherit" onClick={() => navigate('/admin/departments')}>Отделы</Button>
+          </Box>
+        )}
         {user.isAuth && (
           <Box>
             <Button color="inherit" onClick={() => navigate('/profile')}>Профиль</Button>

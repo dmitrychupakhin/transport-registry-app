@@ -10,21 +10,13 @@ class EmployeeCrudController {
     async getAllEmployees(req, res, next) {
         try {
             const schema = Joi.object({
-            limit: Joi.number().integer().min(1).max(50).default(15),
-            page: Joi.number().integer().min(1).default(1),
-
-            badgeNumber: Joi.string().optional(),
-            unitCode: Joi.string().length(6).optional(),
-            lastName: Joi.string().optional(),
-            firstName: Joi.string().optional(),
-            patronymic: Joi.string().optional(),
-            rank: Joi.string().optional(),
-
-            sortField: Joi.string()
-                .valid('badgeNumber', 'unitCode', 'lastName', 'firstName', 'patronymic', 'rank')
-                .default('lastName'),
-
-            sortOrder: Joi.string().valid('asc', 'desc').insensitive().default('asc')
+                limit: Joi.number().integer().min(1).max(50).default(15),
+                page: Joi.number().integer().min(1).default(1),
+                search: Joi.string().optional(),
+                sortField: Joi.string()
+                    .valid('badgeNumber', 'unitCode', 'lastName', 'firstName', 'patronymic', 'rank')
+                    .default('lastName'),
+                sortOrder: Joi.string().valid('asc', 'desc').insensitive().default('asc')
             });
 
             const rawQuery = { ...req.query };
@@ -38,28 +30,20 @@ class EmployeeCrudController {
             throw ApiError.badRequest(error.details[0].message);
             }
 
-            const {
-                limit,
-                page,
-                badgeNumber,
-                unitCode,
-                lastName,
-                firstName,
-                patronymic,
-                rank,
-                sortField,
-                sortOrder
-            } = value;
-
+            const { limit, page, search, sortField, sortOrder } = value;
             const offset = (page - 1) * limit;
 
             const where = {};
-            if (badgeNumber) where.badgeNumber = { [Op.like]: `%${badgeNumber}%` };
-            if (unitCode) where.unitCode = unitCode;
-            if (lastName) where.lastName = { [Op.like]: `%${lastName}%` };
-            if (firstName) where.firstName = { [Op.like]: `%${firstName}%` };
-            if (patronymic) where.patronymic = { [Op.like]: `%${patronymic}%` };
-            if (rank) where.rank = { [Op.like]: `%${rank}%` };
+            if (search) {
+                where[Op.or] = [
+                    { badgeNumber: { [Op.like]: `%${search}%` } },
+                    { unitCode: { [Op.like]: `%${search}%` } },
+                    { lastName: { [Op.like]: `%${search}%` } },
+                    { firstName: { [Op.like]: `%${search}%` } },
+                    { patronymic: { [Op.like]: `%${search}%` } },
+                    { rank: { [Op.like]: `%${search}%` } }
+                ];
+            }
 
             const { count, rows } = await Employee.findAndCountAll({
                 where,
