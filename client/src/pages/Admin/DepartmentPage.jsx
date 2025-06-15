@@ -26,7 +26,7 @@ function DepartmentPage() {
 
   const [filter, setFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [sortOrder, setSortOrder] = useState('asc');
 
