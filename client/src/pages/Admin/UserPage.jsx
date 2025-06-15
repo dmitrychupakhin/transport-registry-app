@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Container, Typography, Button, Box, Snackbar, TextField, Pagination,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, MenuItem, Select
+  IconButton, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
 import { Add, Delete, Edit, Lock } from '@mui/icons-material';
 import UserFormDialog from '../../components/Admin/User/UserFormDialog';
@@ -26,6 +26,7 @@ function UserPage() {
   const [filter, setFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
 
   const [editingCell, setEditingCell] = useState(null);
@@ -35,7 +36,7 @@ function UserPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const params = { page, limit: 10 };
+      const params = { page, limit };
       if (filter.trim()) params.search = filter.trim();
       if (roleFilter) params.role = roleFilter;
 
@@ -52,7 +53,7 @@ function UserPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [page, filter, roleFilter]);
+  }, [page, filter, roleFilter, limit]);
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -205,7 +206,24 @@ function UserPage() {
         </Table>
       </TableContainer>
 
-      <Box display="flex" justifyContent="center" mt={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+        <FormControl sx={{ minWidth: 120 }}>
+          <InputLabel id="limit-label">Показывать по</InputLabel>
+          <Select
+            labelId="limit-label"
+            value={limit}
+            label="Показывать по"
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            {[5, 10, 20, 50].map((n) => (
+              <MenuItem key={n} value={n}>{n}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <Pagination count={totalPages} page={page} onChange={(_, value) => setPage(value)} />
       </Box>
 
