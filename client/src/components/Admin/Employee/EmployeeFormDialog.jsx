@@ -57,6 +57,11 @@ function EmployeeFormDialog({ open, onClose, onSubmit, editingData }) {
         patronymic: form.patronymic,
         rank: form.rank
       };
+
+      if (!editingData) {
+        data.badgeNumber = form.badgeNumber;
+      }
+
       const id = form.badgeNumber;
       onSubmit(data, id);
     }
