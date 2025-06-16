@@ -61,11 +61,20 @@ function UserFormDialog({ open, onClose, onSubmit, editingData }) {
 
   const handleSubmit = () => {
     const cleaned = { ...form };
+
+    if (!isCreating) {
+      delete cleaned.id;
+      delete cleaned.createdAt;
+      delete cleaned.updatedAt;
+    }
+
     Object.keys(cleaned).forEach((key) => {
       if (cleaned[key] === '') delete cleaned[key];
     });
+
     onSubmit(cleaned);
   };
+
 
   const isCreating = !editingData;
 
