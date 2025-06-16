@@ -41,11 +41,15 @@ function WorkPage() {
   const badgeNumber = user?.user?.badgeNumber || 'неизвестно';
 
   useEffect(() => {
-    clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
+    if (search) {
+      clearTimeout(searchTimeout.current);
+      searchTimeout.current = setTimeout(() => {
+        loadWorks();
+      }, 500);
+      return () => clearTimeout(searchTimeout.current);
+    } else {
       loadWorks();
-    }, 500); 
-    return () => clearTimeout(searchTimeout.current);
+    }
   }, [search, page, limit]);
 
   const loadWorks = async () => {
@@ -61,10 +65,6 @@ function WorkPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadWorks();
-  }, [page, limit]);
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
