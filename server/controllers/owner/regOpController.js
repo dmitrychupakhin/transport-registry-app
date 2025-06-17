@@ -48,7 +48,7 @@ class RegOpController {
                 },
                 {
                 model: RegistrationDoc,
-                attributes: ['registrationNumber', 'registrationDate']
+                attributes: ['registrationNumber', 'registrationDate', 'pts', 'sts']
                 }
             ],
             limit,

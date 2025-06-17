@@ -79,15 +79,21 @@ function OwnerVehiclesList({ onSuccess }) {
               return (
                 <Accordion key={idx} sx={{ borderRadius: 1, boxShadow: 2 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box>
-                      <Typography fontWeight={600}>{tv.makeAndModel}</Typography>
-                      <Typography variant="body2" color="text.secondary">{tv.vin}</Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                      <Box>
+                        <Typography fontWeight={600}>{tv.makeAndModel}</Typography>
+                        <Typography variant="body2" color="text.secondary">{tv.vin}</Typography>
+                      </Box>
+                      <Box textAlign="right">
+                        <Typography variant="body2"><strong>Гос. номер:</strong> {doc?.registrationNumber || '—'}</Typography>
+                        <Typography variant="body2"><strong>ПТС:</strong> {doc?.pts || '—'}</Typography>
+                        <Typography variant="body2"><strong>СТС:</strong> {doc?.sts || '—'}</Typography>
+                      </Box>
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6} md={4}><Typography><strong>Год выпуска:</strong> {tv.releaseYear}</Typography></Grid>
-                      <Grid item xs={12} sm={6} md={4}><Typography><strong>Гос. регистр. номер:</strong> {doc?.registrationNumber || '—'}</Typography></Grid>
                       <Grid item xs={12} sm={6} md={4}><Typography><strong>Дата регистрации:</strong> {doc?.registrationDate?.slice(0, 10) || '—'}</Typography></Grid>
                       <Grid item xs={12} sm={6} md={4}><Typography><strong>Изготовитель:</strong> {tv.manufacture}</Typography></Grid>
                       <Grid item xs={12} sm={6} md={4}><Typography><strong>Тип привода:</strong> {tv.typeOfDrive}</Typography></Grid>

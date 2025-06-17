@@ -103,21 +103,34 @@ function ChangeVehicleDataDialog({ open, onClose, vehicle, currentOwner, onSucce
     setLoading(true);
     try {
       const operationBase = generateOperationBase();
+      const techChanged = operationBase.includes('→');
+      const ownerChanged = !!formData.futureOwner;
+
+      if (!techChanged && !ownerChanged) {
+        onSuccess?.('Данные не изменились. Заявление не было сформировано.');
+        setLoading(false);
+        return;
+      }
 
       await api.post('/owner/reg-op', {
-        vin: vehicle.vin,
-        registrationNumber: formData.futureOwner ? '' : (vehicle.registrationNumber || ''),
-        unitCode, 
+        vin: vehicle.transportvehicle?.vin,
+        unitCode,
         operationType: 'Внесение измененеий в регистрационные данные',
-        operationBase: operationBase, 
+        operationBase,
         operationDate: new Date().toISOString().split('T')[0]
       });
-      if (formData.futureOwner && vehicle.operationId) {
+
+      if (ownerChanged && vehicle.operationId) {
         await api.patch(`/employee/reg-op/${vehicle.operationId}`, {
-        registrationNumber: null
-      });
+          registrationNumber: null
+        });
       }
-      onSuccess?.('Изменения успешно отправлены. Обратитесь в указанный вами регистрационный отдел.');
+
+      const successMessage = ownerChanged
+        ? 'Заявление успешно отправлено. Новому владельцу необходимо обратиться в указанный Вами регистрационный отдел.'
+        : 'Изменения успешно зарегистрированы. Обратитесь в указанный Вами регистрационный отдел.';
+
+      onSuccess?.(successMessage);
       onClose();
     } catch (e) {
       console.error('Ошибка подачи заявления:', e);
