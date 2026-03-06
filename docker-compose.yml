@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 00000000
       POSTGRES_DB: vehicle_registration
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/init:/docker-entrypoint-initdb.d
@@ -17,20 +15,30 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
-    build: .
-    container_name: vehicle_app
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: vehicle_backend
     env_file:
-      - .env
-    ports:
-      - "3001:3001"
+      - ./server/.env
     depends_on:
       db:
         condition: service_healthy
-    command: npm run dev
-    volumes:
-      - .:/app
-      - /app/node_modules
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: vehicle_frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
 
 volumes:
   pgdata:
